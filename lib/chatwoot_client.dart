@@ -60,6 +60,14 @@ class ChatwootClient {
     await _repository.sendMessage(request);
   }
 
+  Future<void> sendMessageWithAttachment(
+      {required String content,
+      required String echoId,
+      required String filePath}) async {
+    await _repository.sendMessageWithAttachment(
+        content: content, echoId: echoId, filePath: filePath);
+  }
+
   ///Send chatwoot action performed by user.
   ///
   /// Example: User started typing

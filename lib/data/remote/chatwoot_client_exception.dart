@@ -5,6 +5,9 @@ class ChatwootClientException implements Exception {
   ChatwootClientExceptionType type;
 
   ChatwootClientException(this.cause, this.type, {this.data});
+
+  @override
+  String toString() => cause;
 }
 
 /// {@category FlutterClientSdk}

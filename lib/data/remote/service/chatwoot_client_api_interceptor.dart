@@ -27,37 +27,41 @@ class ChatwootClientApiInterceptor extends Interceptor {
   Future<void> onRequest(
       RequestOptions options, RequestInterceptorHandler handler) async {
     await requestLock.synchronized(() async {
-      RequestOptions newOptions = options;
-      ChatwootContact? contact = _localStorage.contactDao.getContact();
-      ChatwootConversation? conversation =
-          _localStorage.conversationDao.getConversation();
+      try {
+        RequestOptions newOptions = options;
+        ChatwootContact? contact = _localStorage.contactDao.getContact();
+        ChatwootConversation? conversation =
+            _localStorage.conversationDao.getConversation();
 
-      if (contact == null) {
-        // create new contact from user if no token found
-        contact = await _authService.createNewContact(
-            _inboxIdentifier, _localStorage.userDao.getUser());
-        conversation = await _authService.createNewConversation(
-            _inboxIdentifier, contact.contactIdentifier!);
-        await _localStorage.conversationDao.saveConversation(conversation);
-        await _localStorage.contactDao.saveContact(contact);
+        if (contact == null) {
+          // create new contact from user if no token found
+          contact = await _authService.createNewContact(
+              _inboxIdentifier, _localStorage.userDao.getUser());
+          conversation = await _authService.createNewConversation(
+              _inboxIdentifier, contact.contactIdentifier!);
+          await _localStorage.conversationDao.saveConversation(conversation);
+          await _localStorage.contactDao.saveContact(contact);
+        }
+
+        if (conversation == null) {
+          conversation = await _authService.createNewConversation(
+              _inboxIdentifier, contact.contactIdentifier!);
+          await _localStorage.conversationDao.saveConversation(conversation);
+        }
+
+        newOptions.path = newOptions.path.replaceAll(
+            INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER, _inboxIdentifier);
+        newOptions.path = newOptions.path.replaceAll(
+            INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER,
+            contact.contactIdentifier!);
+        newOptions.path = newOptions.path.replaceAll(
+            INTERCEPTOR_CONVERSATION_IDENTIFIER_PLACEHOLDER,
+            "${conversation.id}");
+
+        handler.next(newOptions);
+      } catch (e) {
+        handler.reject(DioException(requestOptions: options, error: e));
       }
-
-      if (conversation == null) {
-        conversation = await _authService.createNewConversation(
-            _inboxIdentifier, contact.contactIdentifier!);
-        await _localStorage.conversationDao.saveConversation(conversation);
-      }
-
-      newOptions.path = newOptions.path.replaceAll(
-          INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER, _inboxIdentifier);
-      newOptions.path = newOptions.path.replaceAll(
-          INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER,
-          contact.contactIdentifier!);
-      newOptions.path = newOptions.path.replaceAll(
-          INTERCEPTOR_CONVERSATION_IDENTIFIER_PLACEHOLDER,
-          "${conversation.id}");
-
-      handler.next(newOptions);
     });
   }
 

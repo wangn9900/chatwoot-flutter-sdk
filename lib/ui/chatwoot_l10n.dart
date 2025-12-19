@@ -43,20 +43,19 @@ class ChatwootL10n extends ChatL10n {
 
   /// Creates a new chatwoot l10n
   const ChatwootL10n(
-      {this.attachmentButtonAccessibilityLabel = "",
-      this.emptyChatPlaceholder = "",
-      this.fileButtonAccessibilityLabel = "",
-      this.onlineText = "Typically replies in a few hours",
-      this.offlineText = "We're away at the moment",
-      this.typingText = "typing...",
-      this.inputPlaceholder = "Type your message",
-      this.sendButtonAccessibilityLabel = "Send Message",
-      this.conversationResolvedMessage = "Your ticket has been marked as resolved",
-      this.and = "and",
-      this.isTyping = "is typing...",
-      this.others = "others",
-      this.unreadMessagesLabel = "Your ticket has been marked as resolved"
-    })
+      {this.attachmentButtonAccessibilityLabel = "发送附件",
+      this.emptyChatPlaceholder = "暂无消息",
+      this.fileButtonAccessibilityLabel = "文件",
+      this.onlineText = "通常几小时内回复",
+      this.offlineText = "当前暂无客服在线",
+      this.typingText = "正在输入...",
+      this.inputPlaceholder = "请输入消息...",
+      this.sendButtonAccessibilityLabel = "发送",
+      this.conversationResolvedMessage = "对话已结束",
+      this.and = "和",
+      this.isTyping = "正在输入...",
+      this.others = "其他",
+      this.unreadMessagesLabel = "未读消息"})
       : super(
             attachmentButtonAccessibilityLabel:
                 attachmentButtonAccessibilityLabel,
@@ -67,6 +66,5 @@ class ChatwootL10n extends ChatL10n {
             and: and,
             isTyping: isTyping,
             others: others,
-            unreadMessagesLabel: unreadMessagesLabel
-      );
+            unreadMessagesLabel: unreadMessagesLabel);
 }

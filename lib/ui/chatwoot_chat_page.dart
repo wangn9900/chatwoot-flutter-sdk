@@ -110,6 +110,12 @@ class ChatwootChat extends StatefulWidget {
   ///See [ChatwootCallbacks.onError]
   final void Function(ChatwootClientException)? onError;
 
+  /// Triggered when the client is created
+  final void Function(ChatwootClient client)? onClientCreated;
+
+  /// Triggered when attachment button is pressed
+  final void Function(ChatwootClient? client)? onAttachmentPressed;
+
   ///Horizontal padding is reduced if set to true
   final bool isPresentedInDialog;
 
@@ -145,6 +151,8 @@ class ChatwootChat extends StatefulWidget {
       this.onConversationIsOnline,
       this.onConversationIsOffline,
       this.onError,
+      this.onClientCreated,
+      this.onAttachmentPressed,
       this.isPresentedInDialog = false})
       : super(key: key);
 
@@ -199,7 +207,7 @@ class _ChatwootChatState extends State<ChatwootChat> {
         if (widget.enablePersistence) {
           setState(() {
             _messages = persistedMessages
-                .map((message) => _chatwootMessageToTextMessage(message))
+                .map((message) => _chatwootMessageToMessage(message))
                 .toList();
           });
         }
@@ -211,7 +219,7 @@ class _ChatwootChatState extends State<ChatwootChat> {
         }
         setState(() {
           final chatMessages = messages
-              .map((message) => _chatwootMessageToTextMessage(message))
+              .map((message) => _chatwootMessageToMessage(message))
               .toList();
           final mergedMessages =
               <types.Message>[..._messages, ...chatMessages].toSet().toList();
@@ -224,16 +232,16 @@ class _ChatwootChatState extends State<ChatwootChat> {
         widget.onMessagesRetrieved?.call(messages);
       },
       onMessageReceived: (chatwootMessage) {
-        _addMessage(_chatwootMessageToTextMessage(chatwootMessage));
+        _addMessage(_chatwootMessageToMessage(chatwootMessage));
         widget.onMessageReceived?.call(chatwootMessage);
       },
       onMessageDelivered: (chatwootMessage, echoId) {
         _handleMessageSent(
-            _chatwootMessageToTextMessage(chatwootMessage, echoId: echoId));
+            _chatwootMessageToMessage(chatwootMessage, echoId: echoId));
         widget.onMessageDelivered?.call(chatwootMessage);
       },
       onMessageUpdated: (chatwootMessage) {
-        _handleMessageUpdated(_chatwootMessageToTextMessage(chatwootMessage,
+        _handleMessageUpdated(_chatwootMessageToMessage(chatwootMessage,
             echoId: chatwootMessage.id.toString()));
         widget.onMessageUpdated?.call(chatwootMessage);
       },
@@ -252,7 +260,7 @@ class _ChatwootChatState extends State<ChatwootChat> {
             text: widget.l10n.conversationResolvedMessage,
             author: types.User(
                 id: idGen.v4(),
-                firstName: "Bot",
+                firstName: "客服",
                 imageUrl:
                     "https://d2cbg94ubxgsnp.cloudfront.net/Pictures/480x270//9/9/3/512993_shutterstock_715962319converted_920340.png"),
             status: types.Status.delivered);
@@ -277,6 +285,7 @@ class _ChatwootChatState extends State<ChatwootChat> {
       setState(() {
         chatwootClient = client;
         chatwootClient!.loadMessages();
+        widget.onClientCreated?.call(client);
       });
     }).onError((error, stackTrace) {
       widget.onError?.call(ChatwootClientException(
@@ -285,7 +294,7 @@ class _ChatwootChatState extends State<ChatwootChat> {
     });
   }
 
-  types.TextMessage _chatwootMessageToTextMessage(ChatwootMessage message,
+  types.Message _chatwootMessageToMessage(ChatwootMessage message,
       {String? echoId}) {
     String? avatarUrl = message.sender?.avatarUrl ?? message.sender?.thumbnail;
 
@@ -294,18 +303,51 @@ class _ChatwootChatState extends State<ChatwootChat> {
     if (avatarUrl?.contains("?d=404") ?? false) {
       avatarUrl = null;
     }
+
+    final user = message.isMine
+        ? _user
+        : types.User(
+            id: message.sender?.id.toString() ?? idGen.v4(),
+            firstName: message.sender?.name,
+            imageUrl: avatarUrl,
+          );
+
+    final String id = echoId ?? message.id.toString();
+    final int createdAt =
+        DateTime.parse(message.createdAt).millisecondsSinceEpoch;
+
+    if (message.attachments != null && message.attachments!.isNotEmpty) {
+      final attachment = message.attachments!.first;
+      final dataUrl = attachment['data_url'];
+
+      if (dataUrl != null &&
+          dataUrl is String &&
+          dataUrl.isNotEmpty &&
+          (dataUrl.startsWith('http://') || dataUrl.startsWith('https://'))) {
+        try {
+          final imgMsg = types.ImageMessage(
+              author: user,
+              id: id,
+              name: dataUrl.split("/").last,
+              size: attachment['file_size'] ?? 0,
+              uri: dataUrl,
+              width: (attachment['width'] as num?)?.toDouble() ?? 200.0,
+              height: (attachment['height'] as num?)?.toDouble() ?? 200.0,
+              status: types.Status.seen,
+              createdAt: createdAt);
+          return imgMsg;
+        } catch (e) {
+          // Fall through to TextMessage
+        }
+      }
+    }
+
     return types.TextMessage(
-        id: echoId ?? message.id.toString(),
-        author: message.isMine
-            ? _user
-            : types.User(
-                id: message.sender?.id.toString() ?? idGen.v4(),
-                firstName: message.sender?.name,
-                imageUrl: avatarUrl,
-              ),
+        id: id,
+        author: user,
         text: message.content ?? "",
         status: types.Status.seen,
-        createdAt: DateTime.parse(message.createdAt).millisecondsSinceEpoch);
+        createdAt: createdAt);
   }
 
   void _addMessage(types.Message message) {
@@ -357,15 +399,17 @@ class _ChatwootChatState extends State<ChatwootChat> {
   ) {
     final index = _messages.indexWhere((element) => element.id == message.id);
 
-    if (_messages[index].status == types.Status.seen) {
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      setState(() {
-        _messages[index] = message;
+    if (index != -1) {
+      if (_messages[index].status == types.Status.seen) {
+        return;
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() {
+          _messages[index] = message;
+        });
       });
-    });
+    }
+    // else: 消息不在列表中,忽略 - 它会通过 onMessageReceived 自动添加
   }
 
   void _handleMessageUpdated(
@@ -412,6 +456,9 @@ class _ChatwootChatState extends State<ChatwootChat> {
                 onMessageTap: _handleMessageTap,
                 onPreviewDataFetched: _handlePreviewDataFetched,
                 onSendPressed: _handleSendPressed,
+                onAttachmentPressed: widget.onAttachmentPressed != null
+                    ? () => widget.onAttachmentPressed!(chatwootClient)
+                    : null,
                 user: _user,
                 onEndReached: widget.onEndReached,
                 onEndReachedThreshold: widget.onEndReachedThreshold,
@@ -425,27 +472,6 @@ class _ChatwootChatState extends State<ChatwootChat> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  "assets/logo_grey.png",
-                  package: 'chatwoot_sdk',
-                  width: 15,
-                  height: 15,
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 8.0),
-                  child: Text(
-                    "Powered by Chatwoot",
-                    style: TextStyle(color: Colors.black45, fontSize: 12),
-                  ),
-                )
-              ],
-            ),
-          )
         ],
       ),
     );

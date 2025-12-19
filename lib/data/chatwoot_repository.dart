@@ -39,6 +39,11 @@ abstract class ChatwootRepository {
 
   Future<void> sendMessage(ChatwootNewMessageRequest request);
 
+  Future<void> sendMessageWithAttachment(
+      {required String echoId,
+      required String content,
+      required String filePath});
+
   void sendAction(ChatwootActionType action);
 
   Future<void> clear();
@@ -123,6 +128,25 @@ class ChatwootRepositoryImpl extends ChatwootRepository {
     } on ChatwootClientException catch (e) {
       callbacks.onError?.call(
           ChatwootClientException(e.cause, e.type, data: request.echoId));
+    }
+  }
+
+  @override
+  Future<void> sendMessageWithAttachment(
+      {required String echoId,
+      required String content,
+      required String filePath}) async {
+    try {
+      final createdMessage = await clientService.createMessageWithAttachment(
+          echoId: echoId, content: content, filePath: filePath);
+      await localStorage.messagesDao.saveMessage(createdMessage);
+      callbacks.onMessageSent?.call(createdMessage, echoId);
+      if (clientService.connection != null && !_isListeningForEvents) {
+        listenForEvents();
+      }
+    } on ChatwootClientException catch (e) {
+      callbacks.onError
+          ?.call(ChatwootClientException(e.cause, e.type, data: echoId));
     }
   }
 

@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:chatwoot_sdk/data/local/entity/chatwoot_contact.dart';
 import 'package:chatwoot_sdk/data/local/entity/chatwoot_conversation.dart';
 import 'package:chatwoot_sdk/data/local/entity/chatwoot_message.dart';
@@ -28,6 +30,11 @@ abstract class ChatwootClientService {
   Future<List<ChatwootConversation>> getConversations();
 
   Future<ChatwootMessage> createMessage(ChatwootNewMessageRequest request);
+
+  Future<ChatwootMessage> createMessageWithAttachment(
+      {required String echoId,
+      required String content,
+      required String filePath});
 
   Future<ChatwootMessage> updateMessage(String messageIdentifier, update);
 
@@ -59,8 +66,44 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
             ChatwootClientExceptionType.SEND_MESSAGE_FAILED);
       }
     } on DioException catch (e) {
+      final detailedError =
+          'DioError: ${e.type} | Msg: ${e.message} | Inner: ${e.error}';
+      debugPrint("Chatwoot Service Error: $detailedError");
       throw ChatwootClientException(
-          e.message ?? '', ChatwootClientExceptionType.SEND_MESSAGE_FAILED);
+          detailedError, ChatwootClientExceptionType.SEND_MESSAGE_FAILED);
+    }
+  }
+
+  @override
+  Future<ChatwootMessage> createMessageWithAttachment(
+      {required String echoId,
+      required String content,
+      required String filePath}) async {
+    try {
+      String fileName = filePath.split(RegExp(r'[/\\]')).last;
+      FormData formData = FormData.fromMap({
+        "content": content,
+        "echo_id": echoId,
+        "attachments[]":
+            await MultipartFile.fromFile(filePath, filename: fileName)
+      });
+
+      final createResponse = await _dio.post(
+          "/public/api/v1/inboxes/${ChatwootClientApiInterceptor.INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER}/contacts/${ChatwootClientApiInterceptor.INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER}/conversations/${ChatwootClientApiInterceptor.INTERCEPTOR_CONVERSATION_IDENTIFIER_PLACEHOLDER}/messages",
+          data: formData);
+      if ((createResponse.statusCode ?? 0).isBetween(199, 300)) {
+        return ChatwootMessage.fromJson(createResponse.data);
+      } else {
+        throw ChatwootClientException(
+            createResponse.statusMessage ?? "unknown error",
+            ChatwootClientExceptionType.SEND_MESSAGE_FAILED);
+      }
+    } on DioException catch (e) {
+      final detailedError =
+          'DioError: ${e.type} | Msg: ${e.message} | Inner: ${e.error}';
+      debugPrint("Chatwoot Service Error: $detailedError");
+      throw ChatwootClientException(
+          detailedError, ChatwootClientExceptionType.SEND_MESSAGE_FAILED);
     }
   }
 
@@ -80,8 +123,11 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
             ChatwootClientExceptionType.GET_MESSAGES_FAILED);
       }
     } on DioException catch (e) {
+      final detailedError =
+          'DioError: ${e.type} | Msg: ${e.message} | Inner: ${e.error}';
+      debugPrint("Chatwoot Service Error: $detailedError");
       throw ChatwootClientException(
-          e.message ?? '', ChatwootClientExceptionType.GET_MESSAGES_FAILED);
+          detailedError, ChatwootClientExceptionType.GET_MESSAGES_FAILED);
     }
   }
 
@@ -99,8 +145,11 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
             ChatwootClientExceptionType.GET_CONTACT_FAILED);
       }
     } on DioException catch (e) {
+      final detailedError =
+          'DioError: ${e.type} | Msg: ${e.message} | Inner: ${e.error}';
+      debugPrint("Chatwoot Service Error: $detailedError");
       throw ChatwootClientException(
-          e.message ?? '', ChatwootClientExceptionType.GET_CONTACT_FAILED);
+          detailedError, ChatwootClientExceptionType.GET_CONTACT_FAILED);
     }
   }
 
@@ -120,8 +169,11 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
             ChatwootClientExceptionType.GET_CONVERSATION_FAILED);
       }
     } on DioException catch (e) {
+      final detailedError =
+          'DioError: ${e.type} | Msg: ${e.message} | Inner: ${e.error}';
+      debugPrint("Chatwoot Service Error: $detailedError");
       throw ChatwootClientException(
-          e.message ?? '', ChatwootClientExceptionType.GET_CONVERSATION_FAILED);
+          detailedError, ChatwootClientExceptionType.GET_CONVERSATION_FAILED);
     }
   }
 
@@ -140,8 +192,11 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
             ChatwootClientExceptionType.UPDATE_CONTACT_FAILED);
       }
     } on DioException catch (e) {
+      final detailedError =
+          'DioError: ${e.type} | Msg: ${e.message} | Inner: ${e.error}';
+      debugPrint("Chatwoot Service Error: $detailedError");
       throw ChatwootClientException(
-          e.message ?? '', ChatwootClientExceptionType.UPDATE_CONTACT_FAILED);
+          detailedError, ChatwootClientExceptionType.UPDATE_CONTACT_FAILED);
     }
   }
 
@@ -161,8 +216,11 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
             ChatwootClientExceptionType.UPDATE_MESSAGE_FAILED);
       }
     } on DioException catch (e) {
+      final detailedError =
+          'DioError: ${e.type} | Msg: ${e.message} | Inner: ${e.error}';
+      debugPrint("Chatwoot Service Error: $detailedError");
       throw ChatwootClientException(
-          e.message ?? '', ChatwootClientExceptionType.UPDATE_MESSAGE_FAILED);
+          detailedError, ChatwootClientExceptionType.UPDATE_MESSAGE_FAILED);
     }
   }
 

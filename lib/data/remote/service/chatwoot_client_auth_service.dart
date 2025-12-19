@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:chatwoot_sdk/data/local/entity/chatwoot_contact.dart';
 import 'package:chatwoot_sdk/data/local/entity/chatwoot_conversation.dart';
 import 'package:chatwoot_sdk/data/local/entity/chatwoot_user.dart';
@@ -45,8 +47,11 @@ class ChatwootClientAuthServiceImpl extends ChatwootClientAuthService {
             ChatwootClientExceptionType.CREATE_CONTACT_FAILED);
       }
     } on DioException catch (e) {
+      final detailedError =
+          'DioError: ${e.type} | Msg: ${e.message} | Inner: ${e.error}';
+      debugPrint("Chatwoot Auth Error: $detailedError");
       throw ChatwootClientException(
-          e.message ?? '', ChatwootClientExceptionType.CREATE_CONTACT_FAILED);
+          detailedError, ChatwootClientExceptionType.CREATE_CONTACT_FAILED);
     }
   }
 
@@ -68,8 +73,11 @@ class ChatwootClientAuthServiceImpl extends ChatwootClientAuthService {
             ChatwootClientExceptionType.CREATE_CONVERSATION_FAILED);
       }
     } on DioException catch (e) {
-      throw ChatwootClientException(
-          e.message ?? '', ChatwootClientExceptionType.CREATE_CONVERSATION_FAILED);
+      final detailedError =
+          'DioError: ${e.type} | Msg: ${e.message} | Inner: ${e.error}';
+      debugPrint("Chatwoot Auth Error: $detailedError");
+      throw ChatwootClientException(detailedError,
+          ChatwootClientExceptionType.CREATE_CONVERSATION_FAILED);
     }
   }
 }
