@@ -115,23 +115,11 @@ class _ChatwootChatDashState extends State<ChatwootChatDash> {
         widget.onMessageReceived?.call(chatwootMessage);
       },
       onMessageDelivered: (chatwootMessage, echoId) {
-        _updateMessageStatus(echoId, chatwootMessage);
+        _handleServerMessage(chatwootMessage, echoId);
         widget.onMessageDelivered?.call(chatwootMessage);
       },
       onMessageSent: (chatwootMessage, echoId) {
-        // 尝试更新状态，如果消息不存在(图片附件),则添加到列表
-        final index = _messages.indexWhere(
-          (msg) => msg.customProperties?['id'] == echoId,
-        );
-
-        if (index == -1) {
-          // 消息不在列表中(图片附件) - 添加它
-          _addMessage(_convertToChatMessage(chatwootMessage));
-        } else {
-          // 消息已存在(文本消息) - 只更新状态
-          _updateMessageStatus(echoId, chatwootMessage);
-        }
-
+        _handleServerMessage(chatwootMessage, echoId);
         widget.onMessageSent?.call(chatwootMessage);
       },
       onMessageUpdated: (chatwootMessage) {
@@ -274,17 +262,22 @@ class _ChatwootChatDashState extends State<ChatwootChatDash> {
     _addMessage(systemMsg);
   }
 
-  void _updateMessageStatus(String? echoId, ChatwootMessage chatwootMessage) {
-    if (echoId == null) return;
+  void _handleServerMessage(ChatwootMessage chatwootMessage, String echoId) {
+    final serverId = chatwootMessage.id.toString();
 
     setState(() {
       final index = _messages.indexWhere(
-        (msg) => msg.customProperties?['id'] == echoId,
+        (msg) =>
+            msg.customProperties?['id'] == echoId ||
+            msg.customProperties?['id'] == serverId,
       );
 
       if (index != -1) {
-        // 更新现有消息
+        // 消息已存在：更新它，确保将乐观ID(echoId)替换为真实的serverId
         _messages[index] = _convertToChatMessage(chatwootMessage);
+      } else {
+        // 消息不存在：添加它 (处理图片附件或多端同步情况)
+        _messages.insert(0, _convertToChatMessage(chatwootMessage));
       }
     });
   }
