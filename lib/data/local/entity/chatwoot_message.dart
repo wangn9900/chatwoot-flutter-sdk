@@ -52,10 +52,14 @@ class ChatwootMessage extends Equatable {
   @HiveField(7)
   final List<dynamic>? attachments;
 
-  ///The user this message belongs to
   @JsonKey(name: "sender")
   @HiveField(8)
   final ChatwootEventMessageUser? sender;
+
+  ///status of message
+  @JsonKey()
+  @HiveField(9)
+  final String? status;
 
   ///checks if message belongs to contact making the request
   bool get isMine => messageType != 1;
@@ -69,10 +73,26 @@ class ChatwootMessage extends Equatable {
       required this.createdAt,
       required this.conversationId,
       required this.attachments,
-      required this.sender});
+      required this.sender,
+      this.status});
 
-  factory ChatwootMessage.fromJson(Map<String, dynamic> json) =>
-      _$ChatwootMessageFromJson(json);
+  factory ChatwootMessage.fromJson(Map<String, dynamic> json) {
+    return ChatwootMessage(
+      id: idFromJson(json['id']),
+      content: json['content'] as String?,
+      messageType: messageTypeFromJson(json['message_type']),
+      contentType: json['content_type'] as String?,
+      contentAttributes: json['content_attributes'],
+      createdAt: createdAtFromJson(json['created_at']),
+      conversationId: idFromJson(json['conversation_id']),
+      attachments: json['attachments'] as List<dynamic>?,
+      sender: json['sender'] == null
+          ? null
+          : ChatwootEventMessageUser.fromJson(
+              json['sender'] as Map<String, dynamic>),
+      status: json['status'] as String?,
+    );
+  }
 
   Map<String, dynamic> toJson() => _$ChatwootMessageToJson(this);
 
@@ -86,7 +106,8 @@ class ChatwootMessage extends Equatable {
         createdAt,
         conversationId,
         attachments,
-        sender
+        sender,
+        status
       ];
 }
 

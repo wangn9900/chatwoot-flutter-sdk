@@ -169,6 +169,37 @@ class _ChatwootChatDashState extends State<ChatwootChatDash> {
     final messageId = msg.id.toString();
     final createdAt = DateTime.parse(msg.createdAt);
 
+    // 映射消息状态
+    MessageStatus status = MessageStatus.none;
+    if (msg.isMine) {
+      final msgStatus = msg.status?.toLowerCase();
+
+      // 1. 如果服务器明确给了 read/seen，那肯定是已读
+      if (msgStatus == "seen" || msgStatus == "read") {
+        status = MessageStatus.read;
+      } else {
+        // 2. 启发式逻辑：如果列表后面已经有客服回话了，那这条消息肯定也是已读
+        bool agentRepliedLater = false;
+        final msgTime = DateTime.parse(msg.createdAt);
+
+        for (var existingMsg in _messages) {
+          // 如果有一条消息比当前消息晚，且不是我发的（是客服发的）
+          if (existingMsg.createdAt.isAfter(msgTime) &&
+              existingMsg.user.id != _currentUser.id) {
+            agentRepliedLater = true;
+            break;
+          }
+        }
+
+        if (agentRepliedLater) {
+          status = MessageStatus.read;
+        } else {
+          // 保底状态：只要有ID就是灰色双勾（已送达）
+          status = MessageStatus.received;
+        }
+      }
+    }
+
     // 检查是否有附件(图片)
     if (msg.attachments != null && msg.attachments!.isNotEmpty) {
       final attachment = msg.attachments!.first;
@@ -182,6 +213,7 @@ class _ChatwootChatDashState extends State<ChatwootChatDash> {
           user: user,
           createdAt: createdAt,
           text: msg.content ?? "",
+          status: status,
           medias: [
             ChatMedia(
               url: dataUrl,
@@ -199,6 +231,7 @@ class _ChatwootChatDashState extends State<ChatwootChatDash> {
       user: user,
       createdAt: createdAt,
       text: msg.content ?? "",
+      status: status,
       customProperties: {'id': messageId},
     );
   }
@@ -344,6 +377,18 @@ class _ChatwootChatDashState extends State<ChatwootChatDash> {
 
   @override
   Widget build(BuildContext context) {
+    // 性能优化：在构建渲染树前，先找出最后一条客服消息的时间戳作为“已读基准线”
+    DateTime? latestAgentMsgTime;
+    for (var m in _messages) {
+      if (m.user.id != _currentUser.id &&
+          m.customProperties?['isSystem'] != true) {
+        if (latestAgentMsgTime == null ||
+            m.createdAt.isAfter(latestAgentMsgTime)) {
+          latestAgentMsgTime = m.createdAt;
+        }
+      }
+    }
+
     return Scaffold(
       appBar: widget.appBar,
       backgroundColor: const Color(0xFFF5F5F5),
@@ -370,6 +415,44 @@ class _ChatwootChatDashState extends State<ChatwootChatDash> {
                 maxWidth: MediaQuery.of(context).size.width * 0.7,
                 showCurrentUserAvatar: false,
                 showOtherUsersAvatar: true,
+                messageTextBuilder: (message, previousMessage, nextMessage) {
+                  // 判定是否逻辑已读：或是服务器说了已读，或是它的时间早于客服最后回复时间
+                  final bool isRead = message.status == MessageStatus.read ||
+                      (latestAgentMsgTime != null &&
+                          (message.createdAt.isBefore(latestAgentMsgTime) ||
+                              message.createdAt
+                                  .isAtSameMomentAs(latestAgentMsgTime)));
+
+                  return Wrap(
+                    alignment: WrapAlignment.end,
+                    crossAxisAlignment: WrapCrossAlignment.end,
+                    children: [
+                      Text(
+                        message.text,
+                        style: TextStyle(
+                          color: message.user.id == _currentUser.id
+                              ? Colors.white
+                              : Colors.black87,
+                          fontSize: 15,
+                        ),
+                      ),
+                      if (message.user.id == _currentUser.id &&
+                          message.status != MessageStatus.none)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6, bottom: 2),
+                          child: Icon(
+                            isRead || message.status == MessageStatus.received
+                                ? Icons.done_all
+                                : Icons.check,
+                            size: 14,
+                            color: isRead
+                                ? const Color(0xFF00E5FF) // 极亮青色，已读状态
+                                : Colors.white38, // 灰色，仅送达状态
+                          ),
+                        ),
+                    ],
+                  );
+                },
                 avatarBuilder: (user, onPressAvatar, onLongPressAvatar) {
                   if (user.profileImage != null &&
                       user.profileImage!.isNotEmpty) {

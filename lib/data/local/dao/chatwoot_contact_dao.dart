@@ -36,9 +36,11 @@ class PersistedChatwootContactDao extends ChatwootContactDao {
 
   @override
   Future<void> saveContact(ChatwootContact contact) async {
+    final identifier = contact.contactIdentifier;
+    if (identifier == null) return;
     await _clientInstanceIdToContactIdentifierBox.put(
-        _clientInstanceKey, contact.contactIdentifier!);
-    await _box.put(contact.contactIdentifier, contact);
+        _clientInstanceKey, identifier);
+    await _box.put(identifier, contact);
   }
 
   @override

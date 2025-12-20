@@ -22,9 +22,9 @@ final unauthenticatedDioProvider =
     Provider.family.autoDispose<Dio, ChatwootParameters>((ref, params) {
   return Dio(BaseOptions(
     baseUrl: params.baseUrl,
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 15),
-    sendTimeout: const Duration(seconds: 15),
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+    sendTimeout: const Duration(seconds: 30),
   ));
 });
 
@@ -43,9 +43,9 @@ final authenticatedDioProvider =
     Provider.family.autoDispose<Dio, ChatwootParameters>((ref, params) {
   final authenticatedDio = Dio(BaseOptions(
     baseUrl: params.baseUrl,
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 15),
-    sendTimeout: const Duration(seconds: 15),
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+    sendTimeout: const Duration(seconds: 30),
   ));
   final interceptor = ref.read(chatwootClientApiInterceptorProvider(params));
   authenticatedDio.interceptors.add(interceptor);

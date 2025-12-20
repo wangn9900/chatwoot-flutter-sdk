@@ -29,7 +29,7 @@ abstract class ChatwootRepository {
 
   ChatwootRepository(this.clientService, this.localStorage, this.callbacks);
 
-  Future<void> initialize(ChatwootUser? user);
+  Future<void> initialize(ChatwootUser? user, {int retryCount = 0});
 
   void getPersistedMessages();
 
@@ -89,31 +89,71 @@ class ChatwootRepositoryImpl extends ChatwootRepository {
   }
 
   /// Initializes chatwoot client repository
-  Future<void> initialize(ChatwootUser? user) async {
-    try {
-      if (user != null) {
-        await localStorage.userDao.saveUser(user);
-      }
-
-      //refresh contact
+  Future<void> _initializeInternal(ChatwootUser? user) async {
+    if (user != null) {
+      await localStorage.userDao.saveUser(user);
+      // Force update contact info to server to sync custom_attributes (plan, traffic, etc)
+      final contact = await clientService.updateContact(user.toJson());
+      localStorage.contactDao.saveContact(contact);
+    } else {
+      //refresh contact from server if no user provided
       final contact = await clientService.getContact();
       localStorage.contactDao.saveContact(contact);
-
-      //refresh conversation
-      final conversations = await clientService.getConversations();
-      final persistedConversation =
-          localStorage.conversationDao.getConversation()!;
-      final refreshedConversation = conversations.firstWhere(
-          (element) => element.id == persistedConversation.id,
-          orElse: () =>
-              persistedConversation //highly unlikely orElse will be called but still added it just in case
-          );
-      localStorage.conversationDao.saveConversation(refreshedConversation);
-    } on ChatwootClientException catch (e) {
-      callbacks.onError?.call(e);
     }
 
+    //refresh conversation
+    final conversations = await clientService.getConversations();
+    final persistedConversation =
+        localStorage.conversationDao.getConversation();
+    if (persistedConversation != null) {
+      final refreshedConversation = conversations.firstWhere(
+          (element) => element.id == persistedConversation.id,
+          orElse: () => persistedConversation);
+      localStorage.conversationDao.saveConversation(refreshedConversation);
+    }
     listenForEvents();
+  }
+
+  @override
+  Future<void> initialize(ChatwootUser? user, {int retryCount = 0}) async {
+    try {
+      await _initializeInternal(user);
+    } on ChatwootClientException catch (e) {
+      final isNotFoundError = e.cause.toString().contains("404") ||
+          e.type == ChatwootClientExceptionType.GET_CONTACT_FAILED ||
+          e.type == ChatwootClientExceptionType.GET_CONVERSATION_FAILED;
+
+      if (isNotFoundError) {
+        if (retryCount < 1) {
+          print(
+              "Chatwoot: 404 detected during init, purging everything and retrying...");
+          await localStorage.clear(clearChatwootUserStorage: false);
+          await initialize(user, retryCount: retryCount + 1);
+        } else {
+          // 关键：即使最终初始化报错了，如果本地已经有了 Token，也强行开启监听作为兜底
+          if (!_isListeningForEvents &&
+              localStorage.contactDao.getContact()?.pubsubToken != null) {
+            listenForEvents();
+          }
+          rethrow;
+        }
+      } else {
+        callbacks.onError?.call(e);
+        // 其他错误也尝试开启监听
+        if (!_isListeningForEvents &&
+            localStorage.contactDao.getContact()?.pubsubToken != null) {
+          listenForEvents();
+        }
+      }
+    } catch (e) {
+      // 任何其他不可预知错误，如果本地有数据，也要尝试监听
+      if (!_isListeningForEvents &&
+          localStorage.contactDao.getContact()?.pubsubToken != null) {
+        listenForEvents();
+      }
+      callbacks.onError?.call(ChatwootClientException(
+          e.toString(), ChatwootClientExceptionType.CREATE_CLIENT_FAILED));
+    }
   }
 
   ///Sends message to chatwoot inbox
@@ -221,8 +261,6 @@ class ChatwootRepositoryImpl extends ChatwootRepository {
         } else {
           callbacks.onConversationIsOffline?.call();
         }
-      } else {
-        print("chatwoot unknown event: $event");
       }
     });
     _subscriptions.add(newSubscription);

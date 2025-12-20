@@ -57,7 +57,8 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
     try {
       final createResponse = await _dio.post(
           "/public/api/v1/inboxes/${ChatwootClientApiInterceptor.INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER}/contacts/${ChatwootClientApiInterceptor.INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER}/conversations/${ChatwootClientApiInterceptor.INTERCEPTOR_CONVERSATION_IDENTIFIER_PLACEHOLDER}/messages",
-          data: request.toJson());
+          data: request.toJson(),
+          options: Options(validateStatus: (status) => status! < 500));
       if ((createResponse.statusCode ?? 0).isBetween(199, 300)) {
         return ChatwootMessage.fromJson(createResponse.data);
       } else {
@@ -90,7 +91,8 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
 
       final createResponse = await _dio.post(
           "/public/api/v1/inboxes/${ChatwootClientApiInterceptor.INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER}/contacts/${ChatwootClientApiInterceptor.INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER}/conversations/${ChatwootClientApiInterceptor.INTERCEPTOR_CONVERSATION_IDENTIFIER_PLACEHOLDER}/messages",
-          data: formData);
+          data: formData,
+          options: Options(validateStatus: (status) => status! < 500));
       if ((createResponse.statusCode ?? 0).isBetween(199, 300)) {
         return ChatwootMessage.fromJson(createResponse.data);
       } else {
@@ -112,14 +114,16 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
   Future<List<ChatwootMessage>> getAllMessages() async {
     try {
       final createResponse = await _dio.get(
-          "/public/api/v1/inboxes/${ChatwootClientApiInterceptor.INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER}/contacts/${ChatwootClientApiInterceptor.INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER}/conversations/${ChatwootClientApiInterceptor.INTERCEPTOR_CONVERSATION_IDENTIFIER_PLACEHOLDER}/messages");
-      if ((createResponse.statusCode ?? 0).isBetween(199, 300)) {
+          "/public/api/v1/inboxes/${ChatwootClientApiInterceptor.INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER}/contacts/${ChatwootClientApiInterceptor.INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER}/conversations/${ChatwootClientApiInterceptor.INTERCEPTOR_CONVERSATION_IDENTIFIER_PLACEHOLDER}/messages",
+          options: Options(validateStatus: (status) => status! < 500));
+      if ((createResponse.statusCode ?? 0).isBetween(199, 300) &&
+          createResponse.data is List) {
         return (createResponse.data as List<dynamic>)
             .map(((json) => ChatwootMessage.fromJson(json)))
             .toList();
       } else {
         throw ChatwootClientException(
-            createResponse.statusMessage ?? "unknown error",
+            createResponse.statusMessage ?? "Get messages failed",
             ChatwootClientExceptionType.GET_MESSAGES_FAILED);
       }
     } on DioException catch (e) {
@@ -136,12 +140,13 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
   Future<ChatwootContact> getContact() async {
     try {
       final createResponse = await _dio.get(
-          "/public/api/v1/inboxes/${ChatwootClientApiInterceptor.INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER}/contacts/${ChatwootClientApiInterceptor.INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER}");
+          "/public/api/v1/inboxes/${ChatwootClientApiInterceptor.INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER}/contacts/${ChatwootClientApiInterceptor.INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER}",
+          options: Options(validateStatus: (status) => status! < 500));
       if ((createResponse.statusCode ?? 0).isBetween(199, 300)) {
         return ChatwootContact.fromJson(createResponse.data);
       } else {
         throw ChatwootClientException(
-            createResponse.statusMessage ?? "unknown error",
+            createResponse.statusMessage ?? "Get contact failed",
             ChatwootClientExceptionType.GET_CONTACT_FAILED);
       }
     } on DioException catch (e) {
@@ -158,14 +163,16 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
   Future<List<ChatwootConversation>> getConversations() async {
     try {
       final createResponse = await _dio.get(
-          "/public/api/v1/inboxes/${ChatwootClientApiInterceptor.INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER}/contacts/${ChatwootClientApiInterceptor.INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER}/conversations");
-      if ((createResponse.statusCode ?? 0).isBetween(199, 300)) {
+          "/public/api/v1/inboxes/${ChatwootClientApiInterceptor.INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER}/contacts/${ChatwootClientApiInterceptor.INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER}/conversations",
+          options: Options(validateStatus: (status) => status! < 500));
+      if ((createResponse.statusCode ?? 0).isBetween(199, 300) &&
+          createResponse.data is List) {
         return (createResponse.data as List<dynamic>)
             .map(((json) => ChatwootConversation.fromJson(json)))
             .toList();
       } else {
         throw ChatwootClientException(
-            createResponse.statusMessage ?? "unknown error",
+            createResponse.statusMessage ?? "Get conversations failed",
             ChatwootClientExceptionType.GET_CONVERSATION_FAILED);
       }
     } on DioException catch (e) {
@@ -183,7 +190,8 @@ class ChatwootClientServiceImpl extends ChatwootClientService {
     try {
       final updateResponse = await _dio.patch(
           "/public/api/v1/inboxes/${ChatwootClientApiInterceptor.INTERCEPTOR_INBOX_IDENTIFIER_PLACEHOLDER}/contacts/${ChatwootClientApiInterceptor.INTERCEPTOR_CONTACT_IDENTIFIER_PLACEHOLDER}",
-          data: update);
+          data: update,
+          options: Options(validateStatus: (status) => status! < 500));
       if ((updateResponse.statusCode ?? 0).isBetween(199, 300)) {
         return ChatwootContact.fromJson(updateResponse.data);
       } else {
